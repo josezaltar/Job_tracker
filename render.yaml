@@ -1,0 +1,26 @@
+# Blueprint do Render: cria a API do Job Tracker no plano gratuito.
+# No Render: New > Blueprint > selecione este repositório.
+services:
+  - type: web
+    name: job-tracker-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false # cole a connection string do Neon
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        sync: false # URL do front-end na Vercel, ex.: https://job-tracker.vercel.app
+      - key: DEMO_ENABLED
+        value: "true"

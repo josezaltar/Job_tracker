@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAppDispatch } from '../hooks'
 import { setCredentials } from '../store/slices/authSlice'
 import { useLoginMutation } from '../services'
+import { API_URL } from '../services/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -12,6 +13,30 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [isDemoLoading, setIsDemoLoading] = useState(false)
+  const [isSlow, setIsSlow] = useState(false)
+
+  const isBusy = isLoading || isDemoLoading
+
+  // A API gratuita "dorme" quando fica parada; o primeiro acesso pode demorar
+  useEffect(() => {
+    if (!isBusy) {
+      setIsSlow(false)
+      return
+    }
+    const timer = setTimeout(() => setIsSlow(true), 4000)
+    return () => clearTimeout(timer)
+  }, [isBusy])
+
+  const signIn = async (credentials: { email: string; password: string }) => {
+    const result = await login(credentials).unwrap()
+
+    // Salva no Redux (e localStorage via slice)
+    dispatch(setCredentials({ user: result.user, token: result.token }))
+
+    // Redireciona pro dashboard
+    navigate('/dashboard')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,15 +49,25 @@ export default function Login() {
     }
 
     try {
-      const result = await login({ email, password }).unwrap()
-      
-      // Salva no Redux (e localStorage via slice)
-      dispatch(setCredentials({ user: result.user, token: result.token }))
-      
-      // Redireciona pro dashboard
-      navigate('/dashboard')
+      await signIn({ email, password })
     } catch (err: any) {
       setError(err?.data?.message || 'Erro ao fazer login')
+    }
+  }
+
+  // Entra com a conta de demonstração (dados de exemplo, recriados a cada reinício do servidor)
+  const handleDemoLogin = async () => {
+    setError('')
+    setIsDemoLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/demo`)
+      if (!response.ok) throw new Error('Conta demo indisponível')
+      const demo: { email: string; password: string } = await response.json()
+      await signIn(demo)
+    } catch {
+      setError('Não foi possível entrar com a conta demo. Tente novamente em instantes.')
+    } finally {
+      setIsDemoLoading(false)
     }
   }
 
@@ -82,7 +117,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isBusy}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {isLoading ? (
@@ -98,6 +133,30 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-4">
+            <div className="h-px flex-1 bg-slate-700" />
+            <span className="text-xs text-slate-500">ou</span>
+            <div className="h-px flex-1 bg-slate-700" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={isBusy}
+            className="w-full border border-slate-600 hover:border-blue-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            {isDemoLoading ? 'Entrando na demo...' : '👀 Entrar com conta demo'}
+          </button>
+          <p className="text-center text-xs text-slate-500 mt-2">
+            Explore o app com dados de exemplo, sem precisar se cadastrar.
+          </p>
+
+          {isSlow && (
+            <p className="text-center text-xs text-amber-400 mt-3">
+              ⏳ O servidor gratuito está acordando. O primeiro acesso pode levar até 1 minuto.
+            </p>
+          )}
 
           <p className="text-center text-slate-400 mt-4 text-sm">
             Não tem conta?{' '}

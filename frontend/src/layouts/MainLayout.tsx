@@ -5,7 +5,7 @@ import { logout } from '../store/slices/authSlice'
 export default function MainLayout() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { user, isAuthenticated } = useAppSelector((state) => state.auth)
+  const { user } = useAppSelector((state) => state.auth)
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: '📊' },

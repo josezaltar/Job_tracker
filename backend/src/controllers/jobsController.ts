@@ -6,10 +6,15 @@ import {
   updateJob, 
   deleteJob 
 } from '../data/database'
-import type { AuthRequest } from '../types'
+import type { AuthRequest, JobStatus } from '../types'
+
+// IDs são UUIDs; qualquer outro formato é tratado como "não encontrado"
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const VALID_STATUSES: JobStatus[] = ['wishlist', 'applied', 'interview', 'offer', 'rejected', 'accepted']
 
 // GET /api/jobs
-export const getJobs = (req: AuthRequest, res: Response): void => {
+export const getJobs = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
 
@@ -18,7 +23,7 @@ export const getJobs = (req: AuthRequest, res: Response): void => {
       return
     }
 
-    const jobs = getJobsByUserId(userId)
+    const jobs = await getJobsByUserId(userId)
     res.json(jobs)
   } catch (error) {
     console.error('Erro ao buscar vagas:', error)
@@ -27,17 +32,22 @@ export const getJobs = (req: AuthRequest, res: Response): void => {
 }
 
 // GET /api/jobs/:id
-export const getJob = (req: AuthRequest, res: Response): void => {
+export const getJob = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
-    const { id } = req.params
+    const id = String(req.params.id)
+
+    if (!UUID_REGEX.test(id)) {
+      res.status(404).json({ message: 'Vaga não encontrada' })
+      return
+    }
 
     if (!userId) {
       res.status(401).json({ message: 'Não autenticado' })
       return
     }
 
-    const job = getJobById(id, userId)
+    const job = await getJobById(id, userId)
     if (!job) {
       res.status(404).json({ message: 'Vaga não encontrada' })
       return
@@ -51,7 +61,7 @@ export const getJob = (req: AuthRequest, res: Response): void => {
 }
 
 // POST /api/jobs
-export const create = (req: AuthRequest, res: Response): void => {
+export const create = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
 
@@ -68,8 +78,12 @@ export const create = (req: AuthRequest, res: Response): void => {
       return
     }
 
-    const job = createJob({
-      userId,
+    if (status && !VALID_STATUSES.includes(status)) {
+      res.status(400).json({ message: 'Status inválido' })
+      return
+    }
+
+    const job = await createJob(userId, {
       company,
       position,
       location,
@@ -89,17 +103,27 @@ export const create = (req: AuthRequest, res: Response): void => {
 }
 
 // PATCH /api/jobs/:id
-export const update = (req: AuthRequest, res: Response): void => {
+export const update = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
-    const { id } = req.params
+    const id = String(req.params.id)
+
+    if (!UUID_REGEX.test(id)) {
+      res.status(404).json({ message: 'Vaga não encontrada' })
+      return
+    }
 
     if (!userId) {
       res.status(401).json({ message: 'Não autenticado' })
       return
     }
 
-    const job = updateJob(id, userId, req.body)
+    if (req.body.status && !VALID_STATUSES.includes(req.body.status)) {
+      res.status(400).json({ message: 'Status inválido' })
+      return
+    }
+
+    const job = await updateJob(id, userId, req.body)
     if (!job) {
       res.status(404).json({ message: 'Vaga não encontrada' })
       return
@@ -113,17 +137,22 @@ export const update = (req: AuthRequest, res: Response): void => {
 }
 
 // DELETE /api/jobs/:id
-export const remove = (req: AuthRequest, res: Response): void => {
+export const remove = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
-    const { id } = req.params
+    const id = String(req.params.id)
+
+    if (!UUID_REGEX.test(id)) {
+      res.status(404).json({ message: 'Vaga não encontrada' })
+      return
+    }
 
     if (!userId) {
       res.status(401).json({ message: 'Não autenticado' })
       return
     }
 
-    const deleted = deleteJob(id, userId)
+    const deleted = await deleteJob(id, userId)
     if (!deleted) {
       res.status(404).json({ message: 'Vaga não encontrada' })
       return

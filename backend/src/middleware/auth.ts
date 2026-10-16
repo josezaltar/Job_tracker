@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import type { AuthRequest } from '../types'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret'
+import { env } from '../config/env'
 
 export const authMiddleware = (
   req: AuthRequest,
@@ -31,7 +31,7 @@ export const authMiddleware = (
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string }
+    const decoded = jwt.verify(token, env.jwtSecret) as { id: string; email: string }
     req.user = decoded
     next()
   } catch (error) {
