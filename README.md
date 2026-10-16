@@ -51,8 +51,8 @@ O **Job Tracker Pro** é uma aplicação fullstack que ajuda profissionais a org
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/josezaltar/job-tracker-pro.git
-cd job-tracker-pro
+git clone https://github.com/josezaltar/Job_tracker.git
+cd Job_tracker
 ```
 
 ### 2. Configure o Backend
@@ -79,7 +79,7 @@ A aplicação estará disponível em `http://localhost:5173`
 ## 📁 Estrutura do Projeto
 
 ```
-job-tracker-pro/
+Job_tracker/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/     # Componentes reutilizáveis
