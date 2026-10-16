@@ -33,7 +33,7 @@ export const jobsApi = api.injectEndpoints({
     // Busca uma vaga pelo ID
     getJob: builder.query<Job, string>({
       query: (id) => `/jobs/${id}`,
-      providesTags: (result, error, id) => [{ type: 'Job', id }],
+      providesTags: (_result, _error, id) => [{ type: 'Job', id }],
     }),
     
     // Cria uma nova vaga
@@ -53,7 +53,7 @@ export const jobsApi = api.injectEndpoints({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
+      invalidatesTags: (_result, _error, { id }) => [
         { type: 'Job', id },
         { type: 'Job', id: 'LIST' },
       ],
@@ -65,7 +65,7 @@ export const jobsApi = api.injectEndpoints({
         url: `/jobs/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, id) => [
+      invalidatesTags: (_result, _error, id) => [
         { type: 'Job', id },
         { type: 'Job', id: 'LIST' },
       ],

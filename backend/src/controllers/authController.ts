@@ -4,12 +4,11 @@ import jwt from 'jsonwebtoken'
 import { findUserByEmail, findUserById, createUser } from '../data/database'
 import type { AuthRequest } from '../types'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret'
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+import { env } from '../config/env'
 
 // Gera o token JWT
 const generateToken = (id: string, email: string): string => {
-  return jwt.sign({ id, email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+  return jwt.sign({ id, email }, env.jwtSecret, { expiresIn: env.jwtExpiresIn as jwt.SignOptions['expiresIn'] })
 }
 
 // POST /api/auth/register
@@ -29,7 +28,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Verifica se email já existe
-    const existingUser = findUserByEmail(email)
+    const existingUser = await findUserByEmail(email)
     if (existingUser) {
       res.status(400).json({ message: 'Email já cadastrado' })
       return
@@ -39,7 +38,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const hashedPassword = await bcrypt.hash(password, 10)
 
     // Cria o usuário
-    const user = createUser({
+    const user = await createUser({
       name,
       email,
       password: hashedPassword
@@ -75,7 +74,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Busca o usuário
-    const user = findUserByEmail(email)
+    const user = await findUserByEmail(email)
     if (!user) {
       res.status(401).json({ message: 'Credenciais inválidas' })
       return
@@ -107,7 +106,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 }
 
 // GET /api/auth/me
-export const getMe = (req: AuthRequest, res: Response): void => {
+export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
 
@@ -116,7 +115,7 @@ export const getMe = (req: AuthRequest, res: Response): void => {
       return
     }
 
-    const user = findUserById(userId)
+    const user = await findUserById(userId)
     if (!user) {
       res.status(404).json({ message: 'Usuário não encontrado' })
       return

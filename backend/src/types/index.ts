@@ -30,11 +30,6 @@ export interface Job {
   updatedAt: string
 }
 
-export interface Database {
-  users: User[]
-  jobs: Job[]
-}
-
 // Request com usuário autenticado
 import { Request } from 'express'
 

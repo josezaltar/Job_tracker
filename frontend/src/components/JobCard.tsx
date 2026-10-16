@@ -55,7 +55,7 @@ export default function JobCard({ job, onEdit, onDelete, onStatusChange }: JobCa
         {job.appliedAt && (
           <div className="flex items-center gap-2">
             <span>📅</span>
-            <span>Aplicado em {new Date(job.appliedAt).toLocaleDateString('pt-BR')}</span>
+            <span>Aplicado em {job.appliedAt.split('-').reverse().join('/')}</span>
           </div>
         )}
       </div>

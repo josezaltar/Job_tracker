@@ -1,12 +1,15 @@
 # 🎯 Job Tracker Pro
 
-Sistema completo de gerenciamento de candidaturas de emprego, construído com React, TypeScript, Node.js e Express.
+Sistema completo de gerenciamento de candidaturas de emprego, construído com React, TypeScript, Node.js, Express e PostgreSQL.
 
-![Dashboard Preview](https://img.shields.io/badge/Status-Em%20Desenvolvimento-brightgreen)
+**🔗 Acesse a demo:** _link após o deploy_ — clique em **"Entrar com conta demo"** para explorar sem se cadastrar.
+
+![Status](https://img.shields.io/badge/Status-Em%20produ%C3%A7%C3%A3o-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=node.js)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)
 
 ## 📋 Sobre o Projeto
 
@@ -19,24 +22,26 @@ O **Job Tracker Pro** é uma aplicação fullstack que ajuda profissionais a org
 - 📊 **Dashboard interativo** — Métricas em tempo real e pipeline visual
 - 🔍 **Filtros e busca** — Encontre vagas por empresa, cargo ou status
 - 🏷️ **Status personalizados** — Wishlist, Aplicado, Entrevista, Proposta, Aceito, Rejeitado
-- 💾 **Persistência de dados** — Seus dados salvos no backend
+- 💾 **Persistência de dados** — PostgreSQL com SQL puro (node-postgres)
+- 👀 **Conta demo** — Acesso com dados de exemplo, recriados a cada reinício do servidor
 - 🛡️ **Rotas protegidas** — Acesso apenas para usuários autenticados
 
 ## 🛠️ Tecnologias
 
 ### Frontend
-- **React 18** — Biblioteca UI
+- **React 19** — Biblioteca UI
 - **TypeScript** — Tipagem estática
 - **Vite** — Build tool ultrarrápido
 - **Tailwind CSS** — Estilização utility-first
 - **Redux Toolkit** — Gerenciamento de estado
 - **RTK Query** — Data fetching e cache
-- **React Router v6** — Roteamento SPA
+- **React Router v7** — Roteamento SPA
 
 ### Backend
 - **Node.js** — Runtime JavaScript
 - **Express** — Framework web
 - **TypeScript** — Tipagem estática
+- **PostgreSQL + node-postgres (pg)** — Banco relacional com queries parametrizadas
 - **JWT** — Autenticação stateless
 - **bcryptjs** — Hash de senhas
 - **CORS** — Cross-Origin Resource Sharing
@@ -46,7 +51,7 @@ O **Job Tracker Pro** é uma aplicação fullstack que ajuda profissionais a org
 ### Pré-requisitos
 
 - Node.js 18+ instalado
-- npm ou yarn
+- PostgreSQL rodando localmente (ou um banco gratuito no [Neon](https://neon.tech))
 
 ### 1. Clone o repositório
 
@@ -60,9 +65,11 @@ cd Job_tracker
 ```bash
 cd backend
 npm install
-cp .env.example .env
+cp .env.example .env   # preencha DATABASE_URL e JWT_SECRET
 npm run dev
 ```
+
+As tabelas são criadas automaticamente na primeira execução, junto com a conta demo.
 
 O servidor estará rodando em `http://localhost:3001`
 
@@ -98,13 +105,23 @@ Job_tracker/
 │   │   ├── controllers/    # Lógica dos endpoints
 │   │   ├── routes/         # Definição de rotas
 │   │   ├── middleware/     # Middlewares (auth)
-│   │   ├── data/           # Banco de dados JSON
+│   │   ├── config/         # Variáveis de ambiente
+│   │   ├── db/             # Conexão, criação das tabelas e conta demo
+│   │   ├── data/           # Queries SQL (repositório)
 │   │   ├── types/          # Tipos TypeScript
 │   │   └── server.ts       # Entrada da aplicação
 │   └── ...
 │
 └── README.md
 ```
+
+## ☁️ Deploy
+
+| Parte | Serviço | Observação |
+|-------|---------|------------|
+| Banco | [Neon](https://neon.tech) | PostgreSQL gratuito |
+| API | [Render](https://render.com) | Configurado em `render.yaml` (plano gratuito: a API "dorme" após 15 min sem uso e leva ~1 min para acordar) |
+| Front-end | [Vercel](https://vercel.com) | Root directory `frontend`, variável `VITE_API_URL` |
 
 ## 🔌 API Endpoints
 
@@ -153,8 +170,8 @@ curl -X GET http://localhost:3001/api/jobs \
 
 ## 🔮 Roadmap
 
-- [ ] Migrar para PostgreSQL com Prisma
-- [ ] Deploy (Vercel + Render)
+- [x] Migrar para PostgreSQL
+- [x] Deploy (Vercel + Render + Neon)
 - [ ] Responsividade mobile
 - [ ] Sistema de lembretes/notificações
 - [ ] Importação de vagas do LinkedIn
