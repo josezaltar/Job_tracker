@@ -13,7 +13,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: DATABASE_URL
         sync: false # cole a connection string do Neon
       - key: JWT_SECRET

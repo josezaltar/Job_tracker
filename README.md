@@ -2,13 +2,13 @@
 
 Sistema completo de gerenciamento de candidaturas de emprego, construído com React, TypeScript, Node.js, Express e PostgreSQL.
 
-**🔗 Acesse a demo:** _link após o deploy_ — clique em **"Entrar com conta demo"** para explorar sem se cadastrar.
+**🔗 Demo:** https://job-tracker-seven-ecru-36.vercel.app — clique em **"Entrar com conta demo"** para explorar sem se cadastrar.
 
 ![Status](https://img.shields.io/badge/Status-Em%20produ%C3%A7%C3%A3o-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
-![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=node.js)
+![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=node.js)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)
 
 ## 📋 Sobre o Projeto
