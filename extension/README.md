@@ -8,6 +8,7 @@ Extensão do **Job Tracker Pro** que lê a vaga aberta no navegador e usa IA (Gr
 - **Analisa com IA.** Nota de 0 a 100, chance (ALTA, MÉDIA ou BAIXA), o que bate com o perfil, o que falta, requisitos eliminatórios, qual versão do currículo enviar e uma dica.
 - **Salva no Job Tracker.** Empresa, cargo, local, salário, link, descrição e análise, com status "Quero aplicar" ou "Já apliquei" (com a data de hoje).
 - **Não duplica.** O link da vaga é normalizado (ex.: `linkedin.com/jobs/search/?currentJobId=123` vira `linkedin.com/jobs/view/123/`) e a extensão consulta a API antes de criar.
+- **Mostra o que estudar.** A página "O que estudar" (link 📊 no popup) junta as lacunas de todas as vagas analisadas: ranking do que mais aparece, em quantas vagas é obrigatório, nota média e chance por vaga. Dá para marcar cada item como "Estudando" ou "Aprendi" (isso entra no perfil enviado para a IA) e baixar a lista em CSV.
 - **Não perde trabalho.** A IA e o salvamento rodam no service worker: dá para fechar o popup no meio (ou clicar na página) e o resultado aparece ao abrir de novo.
 
 ## Como funciona
@@ -31,7 +32,7 @@ Requer Node.js 22 ou mais novo.
 cd extension
 npm install
 npm run build   # gera a pasta dist/
-npm test        # 21 testes: leitura da vaga, links, análise, login e envio
+npm test        # 28 testes: leitura da vaga, links, análise, login, envio e estatísticas
 ```
 
 **No Edge:** abra `edge://extensions`, ligue o **Modo de desenvolvedor** e clique em **Carregar descompactada** (em inglês, *Load unpacked*). Escolha a pasta `extension/dist`.

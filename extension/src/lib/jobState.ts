@@ -45,3 +45,11 @@ export async function patchJobState(jobUrl: string, patch: Partial<JobState>): P
   await chrome.storage.local.set({ [stateKey(jobUrl)]: next })
   return next
 }
+
+/** Todas as vagas analisadas neste navegador (para as estatísticas). */
+export async function getAllJobStates(): Promise<{ jobUrl: string; state: JobState }[]> {
+  const all = (await chrome.storage.local.get(null)) as Record<string, unknown>
+  return Object.entries(all)
+    .filter(([key]) => key.startsWith('job:'))
+    .map(([key, state]) => ({ jobUrl: key.slice(4), state: state as JobState }))
+}
