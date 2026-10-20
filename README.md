@@ -25,6 +25,7 @@ O **Job Tracker Pro** é uma aplicação fullstack que ajuda profissionais a org
 - 💾 **Persistência de dados** — PostgreSQL com SQL puro (node-postgres)
 - 👀 **Conta demo** — Acesso com dados de exemplo, recriados a cada reinício do servidor
 - 🛡️ **Rotas protegidas** — Acesso apenas para usuários autenticados
+- 🧩 **Extensão para Edge/Chrome** — Analisa a vaga aberta com IA (nota, o que bate, o que falta) e salva no Job Tracker com um clique. Veja [`extension/`](extension/README.md)
 
 ## 🛠️ Tecnologias
 

@@ -1,0 +1,28 @@
+{
+  "name": "job-tracker-extension",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Extensão para Edge/Chrome que analisa vagas com IA e salva no Job Tracker Pro",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc -b && vite build",
+    "test": "node --test --experimental-strip-types tests/*.test.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.4"
+  }
+}
