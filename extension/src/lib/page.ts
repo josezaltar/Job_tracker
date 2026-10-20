@@ -1,42 +1,59 @@
-// Lê o texto da vaga na aba atual: o trecho selecionado ou, se não houver, o texto da página.
+// Lê o texto da vaga na aba atual: o trecho selecionado, o bloco de descrição do site ou a página.
+import { JOB_SELECTORS, normalizeJobUrl, pickJobText, type Candidate, type TextSource } from './jobText.ts'
 
 export interface PageContent {
-  url: string
+  url: string // link original da aba
+  jobUrl: string // link normalizado da vaga (usado para cache e para não duplicar)
   title: string
   text: string
-  source: 'selecao' | 'pagina'
+  source: TextSource
 }
 
-const MAX_CHARS = 15000
+// Roda dentro da página da vaga. Precisa ser autocontida: não pode usar nada de fora da função.
+function collectFromPage(selectors: string[]) {
+  const selection = window.getSelection()?.toString() ?? ''
+  const candidates: { selector: string; text: string }[] = []
+  for (const selector of selectors) {
+    try {
+      const el = document.querySelector(selector) as HTMLElement | null
+      if (el?.innerText) candidates.push({ selector, text: el.innerText })
+    } catch {
+      // seletor inválido neste navegador: ignora
+    }
+  }
+  const main = document.querySelector('main, article, [role="main"]') as HTMLElement | null
+  return { selection, candidates, pageText: (main ?? document.body).innerText }
+}
 
-export async function getPageContent(): Promise<PageContent> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+/**
+ * Lê a aba ativa. Com `tabId`, lê uma aba específica (ex.: popup aberto como "popup.html?tab=123",
+ * útil para abrir o analisador numa janela própria e nos testes automáticos).
+ */
+export async function getPageContent(tabId?: number): Promise<PageContent> {
+  const [tab] = tabId ? [await chrome.tabs.get(tabId)] : await chrome.tabs.query({ active: true, currentWindow: true })
   if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) {
-    throw new Error('Abra a página de uma vaga (LinkedIn, Gupy, etc.) para analisar.')
+    throw new Error('Abra a página de uma vaga (LinkedIn, Gupy, Indeed etc.) para analisar.')
   }
 
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: () => {
-      const selection = window.getSelection()?.toString().trim() ?? ''
-      // Sem seleção: usa o conteúdo principal da página
-      const main = document.querySelector('main, article, [role="main"]') as HTMLElement | null
-      const pageText = (main ?? document.body).innerText
-      return { selection, pageText }
-    },
-  })
-
-  const { selection, pageText } = (result?.result ?? { selection: '', pageText: '' }) as {
-    selection: string
-    pageText: string
+  let collected: { selection: string; candidates: Candidate[]; pageText: string }
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: collectFromPage,
+      args: [JOB_SELECTORS],
+    })
+    collected = result?.result ?? { selection: '', candidates: [], pageText: '' }
+  } catch {
+    throw new Error('Não consegui ler esta página. Recarregue a aba (F5) e abra a extensão de novo.')
   }
-  const useSelection = selection.length >= 80
-  const text = (useSelection ? selection : pageText).replace(/\n{3,}/g, '\n\n').slice(0, MAX_CHARS)
+
+  const picked = pickJobText(collected.selection, collected.candidates, collected.pageText)
 
   return {
     url: tab.url,
+    jobUrl: normalizeJobUrl(tab.url),
     title: tab.title ?? '',
-    text,
-    source: useSelection ? 'selecao' : 'pagina',
+    text: picked.text,
+    source: picked.source,
   }
 }

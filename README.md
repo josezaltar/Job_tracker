@@ -133,12 +133,13 @@ Job_tracker/
 | POST | `/api/auth/register` | Criar nova conta |
 | POST | `/api/auth/login` | Fazer login |
 | GET | `/api/auth/me` | Dados do usuário logado |
+| POST | `/api/auth/extension-token` | Token de 90 dias para a extensão do navegador (requer autenticação) |
 
 ### Vagas (requer autenticação)
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/api/jobs` | Listar todas as vagas |
+| GET | `/api/jobs` | Listar todas as vagas (`?url=` filtra pelo link da vaga) |
 | GET | `/api/jobs/:id` | Buscar vaga por ID |
 | POST | `/api/jobs` | Criar nova vaga |
 | PATCH | `/api/jobs/:id` | Atualizar vaga |

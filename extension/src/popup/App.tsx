@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
-import { analyzeJob, type Analysis } from '../lib/analyze.ts'
-import { buildPayload, createJob, SessionExpiredError, type JobFields, type JobStatus } from '../lib/jobTracker.ts'
+import { useEffect, useRef, useState } from 'react'
+import type { Analysis } from '../lib/analyze.ts'
+import { getJobState, runningTask, stateKey, type JobState, type Message } from '../lib/jobState.ts'
+import type { JobFields, JobStatus } from '../lib/jobTracker.ts'
 import { getPageContent, type PageContent } from '../lib/page.ts'
-import { loadSettings, saveSettings, type Settings } from '../lib/settings.ts'
-
-type Phase = 'idle' | 'reading' | 'analyzing' | 'done' | 'saving' | 'saved'
+import { isProfileTemplate, loadSettings, type Settings } from '../lib/settings.ts'
 
 const COLORS: Record<Analysis['veredito'], string> = {
   ALTA: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
@@ -17,7 +16,16 @@ const STATUS: { value: JobStatus; label: string }[] = [
   { value: 'applied', label: 'Já apliquei' },
 ]
 
-const CACHE_KEY = (url: string) => `analysis:${url}`
+const SOURCE_LABEL: Record<PageContent['source'], string> = {
+  selecao: 'Usando o texto que você selecionou',
+  descricao: 'Usando a descrição da vaga encontrada na página',
+  pagina: 'Usando o texto da página. Para mais precisão, selecione a descrição da vaga antes',
+}
+
+const informado = (v: string) => (v === 'Não informado' ? '' : v)
+
+// "popup.html?tab=123" analisa uma aba específica em vez da aba ativa
+const TARGET_TAB = Number(new URLSearchParams(location.search).get('tab')) || undefined
 
 function List({ title, items, sign, color }: { title: string; items: string[]; sign: string; color: string }) {
   if (!items.length) return null
@@ -36,77 +44,76 @@ function List({ title, items, sign, color }: { title: string; items: string[]; s
   )
 }
 
+function send(message: Message) {
+  // O resultado chega pelo chrome.storage; aqui só disparamos o trabalho no service worker.
+  chrome.runtime.sendMessage(message).catch(() => {})
+}
+
 export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [page, setPage] = useState<PageContent | null>(null)
-  const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [state, setState] = useState<JobState>({})
   const [fields, setFields] = useState<JobFields>({ empresa: '', cargo: '', local: '', salario: '', status: 'wishlist' })
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [error, setError] = useState('')
+  const [pageError, setPageError] = useState('')
+  const [reading, setReading] = useState(false)
+  const filledFor = useRef<string>('') // evita sobrescrever o que o usuário editou
 
   useEffect(() => {
+    let key = ''
+    const onChange = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === 'local' && key && changes[key]) setState((changes[key].newValue as JobState) ?? {})
+      if (area === 'local' && changes.settings) loadSettings().then(setSettings)
+    }
+    chrome.storage.onChanged.addListener(onChange)
     ;(async () => {
-      const s = await loadSettings()
-      setSettings(s)
+      setSettings(await loadSettings())
       try {
-        const p = await getPageContent()
+        const p = await getPageContent(TARGET_TAB)
         setPage(p)
-        const cached = (await chrome.storage.local.get(CACHE_KEY(p.url)))[CACHE_KEY(p.url)] as Analysis | undefined
-        if (cached) showAnalysis(cached)
+        key = stateKey(p.jobUrl)
+        setState(await getJobState(p.jobUrl))
       } catch (e) {
-        setError((e as Error).message)
+        setPageError((e as Error).message)
       }
     })()
+    return () => chrome.storage.onChanged.removeListener(onChange)
   }, [])
 
-  function showAnalysis(a: Analysis) {
-    setAnalysis(a)
-    setFields((f) => ({
-      ...f,
-      empresa: a.empresa === 'Não informado' ? '' : a.empresa,
-      cargo: a.cargo === 'Não informado' ? '' : a.cargo,
-      local: a.local === 'Não informado' ? '' : a.local,
-      salario: a.salario === 'Não informado' ? '' : a.salario,
-    }))
-    setPhase('done')
-  }
+  // Preenche os campos de salvar com o que a IA encontrou (uma vez por análise)
+  useEffect(() => {
+    const a = state.analysis
+    if (!a || filledFor.current === state.analyzedAt) return
+    filledFor.current = state.analyzedAt ?? 'cache'
+    setFields((f) => ({ ...f, empresa: informado(a.empresa), cargo: informado(a.cargo), local: informado(a.local), salario: informado(a.salario) }))
+  }, [state.analysis, state.analyzedAt])
 
   async function analyze() {
-    if (!settings) return
-    setError('')
+    setPageError('')
+    setReading(true)
     try {
-      setPhase('reading')
-      const p = await getPageContent() // relê: o usuário pode ter selecionado o texto
+      const p = await getPageContent(TARGET_TAB) // relê: o usuário pode ter selecionado o texto agora
       setPage(p)
-      setPhase('analyzing')
-      const a = await analyzeJob({ key: settings.groqKey, model: settings.model, profile: settings.profile, ...p })
-      await chrome.storage.local.set({ [CACHE_KEY(p.url)]: a })
-      showAnalysis(a)
+      send({ type: 'analyze', page: p })
     } catch (e) {
-      setError((e as Error).message)
-      setPhase(analysis ? 'done' : 'idle')
+      setPageError((e as Error).message)
+    } finally {
+      setReading(false)
     }
   }
 
-  async function save() {
-    if (!settings || !analysis || !page) return
-    setError('')
-    setPhase('saving')
-    try {
-      await createJob(settings.apiUrl, settings.token, buildPayload(fields, analysis, page.url, page.text))
-      setPhase('saved')
-    } catch (e) {
-      if (e instanceof SessionExpiredError) setSettings(await saveSettings({ token: '' }))
-      const msg = (e as Error).message
-      setError(msg === 'Failed to fetch' ? 'Servidor do Job Tracker fora do ar. Tente de novo em 1 minuto.' : msg)
-      setPhase('done')
-    }
+  function save() {
+    if (page) send({ type: 'save', page, fields })
   }
 
   const openOptions = () => chrome.runtime.openOptionsPage()
-  const busy = phase === 'reading' || phase === 'analyzing' || phase === 'saving'
 
   if (!settings) return <div className="w-[380px] p-4 text-sm">Carregando…</div>
+
+  const task = runningTask(state)
+  const analysis = state.analysis
+  const profileMissing = isProfileTemplate(settings.profile)
+  const setupMissing = !settings.groqKey || profileMissing
+  const error = pageError || state.error
 
   return (
     <div className="w-[380px] space-y-3 p-4 text-sm">
@@ -120,32 +127,24 @@ export default function App() {
         </button>
       </header>
 
-      {!settings.groqKey && (
+      {setupMissing && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px] text-amber-200">
-          Falta a chave da Groq.{' '}
+          {!settings.groqKey ? 'Falta a chave da Groq' : 'Falta preencher o seu perfil'}.{' '}
           <button onClick={openOptions} className="font-semibold underline">
             Configurar agora
           </button>
         </div>
       )}
 
-      {page && phase !== 'saved' && (
-        <p className="text-[11.5px] text-slate-400">
-          {page.source === 'selecao'
-            ? `Usando o texto selecionado (${page.text.length} caracteres).`
-            : 'Usando o texto da página. Para mais precisão, selecione a descrição da vaga antes.'}
-        </p>
-      )}
+      {page && !analysis && <p className="text-[11.5px] text-slate-400">{SOURCE_LABEL[page.source]} ({page.text.length} caracteres).</p>}
 
-      {phase !== 'saved' && (
-        <button onClick={analyze} disabled={busy || !settings.groqKey || !page} className="btn btn-primary w-full">
-          {phase === 'reading' ? 'Lendo a página…' : phase === 'analyzing' ? 'Analisando com IA…' : analysis ? 'Analisar de novo' : 'Analisar vaga'}
-        </button>
-      )}
+      <button onClick={analyze} disabled={Boolean(task) || reading || setupMissing || !page} className="btn btn-primary w-full">
+        {reading ? 'Lendo a página…' : task === 'analyzing' ? 'Analisando com IA…' : analysis ? 'Analisar de novo' : 'Analisar vaga'}
+      </button>
 
       {error && <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-2.5 text-[12.5px] text-rose-200">{error}</div>}
 
-      {analysis && phase !== 'saved' && (
+      {analysis && (
         <section className="space-y-2.5 rounded-lg border border-slate-700 bg-slate-800/60 p-3">
           <div className="flex items-center gap-3">
             <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-full border-2 ${COLORS[analysis.veredito]}`}>
@@ -173,7 +172,21 @@ export default function App() {
         </section>
       )}
 
-      {analysis && phase !== 'saved' && (
+      {analysis && state.saved && (
+        <div className="space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
+          <p className="text-[13px] font-semibold text-emerald-300">
+            {state.saved.duplicate ? '✓ Essa vaga já estava no seu Job Tracker' : '✓ Vaga salva no Job Tracker'}
+          </p>
+          <p className="text-[12px] text-slate-300">
+            {state.saved.position} — {state.saved.company}
+          </p>
+          <button onClick={() => chrome.tabs.create({ url: `${settings.appUrl.replace(/\/+$/, '')}/jobs` })} className="btn btn-primary w-full">
+            Abrir Job Tracker
+          </button>
+        </div>
+      )}
+
+      {analysis && !state.saved && (
         <section className="space-y-2 rounded-lg border border-slate-700 p-3">
           <p className="text-[12px] font-semibold text-slate-300">Salvar no Job Tracker</p>
           {!settings.token ? (
@@ -217,29 +230,12 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <button onClick={save} disabled={busy} className="btn w-full bg-emerald-600 text-white hover:bg-emerald-700">
-                {phase === 'saving' ? 'Salvando… (o servidor pode levar até 1 min para acordar)' : 'Salvar no Job Tracker'}
+              <button onClick={save} disabled={Boolean(task)} className="btn w-full bg-emerald-600 text-white hover:bg-emerald-700">
+                {task === 'saving' ? 'Salvando… pode fechar, eu termino sozinho' : 'Salvar no Job Tracker'}
               </button>
             </>
           )}
         </section>
-      )}
-
-      {phase === 'saved' && (
-        <div className="space-y-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-center">
-          <p className="text-[15px] font-semibold text-emerald-300">✓ Vaga salva!</p>
-          <p className="text-[12.5px] text-slate-300">
-            {fields.cargo || 'Vaga'} — {fields.empresa || 'empresa'}, com a análise nas observações.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => chrome.tabs.create({ url: `${settings.appUrl}/jobs` })} className="btn btn-primary flex-1">
-              Abrir Job Tracker
-            </button>
-            <button onClick={() => window.close()} className="btn btn-ghost flex-1">
-              Fechar
-            </button>
-          </div>
-        </div>
       )}
     </div>
   )

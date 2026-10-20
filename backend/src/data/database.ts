@@ -73,11 +73,17 @@ export const createUser = async (user: Pick<User, 'name' | 'email' | 'password'>
 
 // ========== VAGAS ==========
 
-export const getJobsByUserId = async (userId: string): Promise<Job[]> => {
-  const { rows } = await pool.query<Job>(
-    `SELECT ${JOB_COLUMNS} FROM jobs WHERE user_id = $1 ORDER BY updated_at DESC`,
-    [userId]
-  )
+export const getJobsByUserId = async (userId: string, url?: string): Promise<Job[]> => {
+  // Com url, devolve só as vagas com aquele link (a extensão usa isso para não salvar duplicada)
+  const { rows } = url
+    ? await pool.query<Job>(
+        `SELECT ${JOB_COLUMNS} FROM jobs WHERE user_id = $1 AND url = $2 ORDER BY updated_at DESC`,
+        [userId, url]
+      )
+    : await pool.query<Job>(
+        `SELECT ${JOB_COLUMNS} FROM jobs WHERE user_id = $1 ORDER BY updated_at DESC`,
+        [userId]
+      )
   return rows
 }
 

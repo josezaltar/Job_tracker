@@ -13,7 +13,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 const VALID_STATUSES: JobStatus[] = ['wishlist', 'applied', 'interview', 'offer', 'rejected', 'accepted']
 
-// GET /api/jobs
+// GET /api/jobs (ou /api/jobs?url=...)
 export const getJobs = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id
@@ -23,7 +23,10 @@ export const getJobs = async (req: AuthRequest, res: Response): Promise<void> =>
       return
     }
 
-    const jobs = await getJobsByUserId(userId)
+    // Filtro opcional: GET /api/jobs?url=https://...
+    const url = typeof req.query.url === 'string' && req.query.url.trim() ? req.query.url.trim() : undefined
+
+    const jobs = await getJobsByUserId(userId, url)
     res.json(jobs)
   } catch (error) {
     console.error('Erro ao buscar vagas:', error)

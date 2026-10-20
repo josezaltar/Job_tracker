@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { login } from '../lib/jobTracker.ts'
+import { friendlyNetworkError, login } from '../lib/jobTracker.ts'
 import { DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_PROFILE, loadSettings, saveSettings, type Settings } from '../lib/settings.ts'
 
 type Msg = { kind: 'ok' | 'err'; text: string } | null
@@ -77,10 +77,14 @@ export default function App() {
       const user = await login(apiUrl, email.trim(), password)
       setS(await saveSettings({ apiUrl, appUrl: s.appUrl.trim(), token: user.token, userName: user.name, userEmail: user.email }))
       setPassword('')
-      setJtMsg({ kind: 'ok', text: '✓ Conectado. A senha não fica salva, só o token de acesso.' })
+      setJtMsg({
+        kind: 'ok',
+        text: user.longLived
+          ? '✓ Conectado por 90 dias. A senha não fica salva, só o token de acesso.'
+          : '✓ Conectado. A senha não fica salva, só o token de acesso (vale 7 dias).',
+      })
     } catch (e) {
-      const msg = (e as Error).message
-      setJtMsg({ kind: 'err', text: msg === 'Failed to fetch' ? 'Não consegui falar com a API. O servidor pode estar acordando: tente de novo em 1 minuto.' : msg })
+      setJtMsg({ kind: 'err', text: friendlyNetworkError(e) })
     } finally {
       setBusy('')
     }
@@ -126,14 +130,16 @@ export default function App() {
       </Card>
 
       <Card title="2. Seu perfil">
-        <p className="text-[12.5px] text-slate-400">É com isso que a IA compara cada vaga. Atualize quando aprender algo novo ou mudar de currículo.</p>
+        <p className="text-[12.5px] text-slate-400">
+          É com isso que a IA compara cada vaga. Troque os exemplos entre parênteses pelos seus dados e atualize quando aprender algo novo.
+        </p>
         <textarea className="field h-64 font-mono text-[12px] leading-relaxed" value={s.profile} onChange={(e) => set({ profile: e.target.value })} />
         <div className="flex items-center gap-3">
           <button onClick={() => saveProfile(s.profile)} className="btn btn-primary">
             Salvar perfil
           </button>
           <button onClick={() => saveProfile(DEFAULT_PROFILE)} className="btn btn-ghost">
-            Restaurar padrão
+            Voltar ao modelo
           </button>
           <Note msg={profileMsg} />
         </div>

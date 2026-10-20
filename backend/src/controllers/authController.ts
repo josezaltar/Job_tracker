@@ -132,3 +132,32 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     res.status(500).json({ message: 'Erro interno do servidor' })
   }
 }
+
+// POST /api/auth/extension-token
+// Troca a sessão normal por um token de 90 dias para a extensão do navegador,
+// assim ela não pede login toda semana. Exige estar autenticado.
+export const extensionToken = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id
+
+    if (!userId) {
+      res.status(401).json({ message: 'Não autenticado' })
+      return
+    }
+
+    const user = await findUserById(userId)
+    if (!user) {
+      res.status(404).json({ message: 'Usuário não encontrado' })
+      return
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email, scope: 'extension' }, env.jwtSecret, {
+      expiresIn: '90d',
+    })
+
+    res.status(201).json({ token, expiresIn: '90d' })
+  } catch (error) {
+    console.error('Erro ao gerar token da extensão:', error)
+    res.status(500).json({ message: 'Erro interno do servidor' })
+  }
+}
