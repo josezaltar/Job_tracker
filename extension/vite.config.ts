@@ -15,6 +15,7 @@ export default defineConfig({
       input: {
         popup: resolve(__dirname, 'popup.html'),
         options: resolve(__dirname, 'options.html'),
+        stats: resolve(__dirname, 'stats.html'),
         background: resolve(__dirname, 'src/background.ts'),
       },
       output: {

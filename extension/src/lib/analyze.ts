@@ -3,6 +3,15 @@
 export type Veredito = 'ALTA' | 'MÉDIA' | 'BAIXA'
 export type Curriculo = 'Geral' | 'Front-end' | 'Back-end'
 
+export type TipoLacuna = 'tecnologia' | 'idioma' | 'formacao' | 'experiencia' | 'outro'
+
+/** Um requisito que falta no perfil, com nome curto e padronizado (para virar estatística). */
+export interface Lacuna {
+  nome: string
+  tipo: TipoLacuna
+  obrigatorio: boolean
+}
+
 export interface Analysis {
   empresa: string
   cargo: string
@@ -16,6 +25,7 @@ export interface Analysis {
   bate: string[]
   falta: string[]
   eliminatorios: string[]
+  lacunas: Lacuna[]
   curriculo: Curriculo
   resumo: string
   dica: string
@@ -32,12 +42,15 @@ const SYSTEM = `Você é um recrutador técnico brasileiro, honesto e direto. Av
 Regras:
 - Compare os requisitos OBRIGATÓRIOS da vaga com o perfil. Diferenciais pesam pouco.
 - Experiência em gestão NÃO conta como experiência em desenvolvimento.
+- Projetos pessoais publicados contam como experiência prática quando a vaga é júnior ou aceita projetos.
+- Diferenciais que faltam tiram no máximo 10 pontos no total.
 - São eliminatórios: exigir pleno/sênior ou 3+ anos de dev; graduação obrigatória em TI/Computação; inglês fluente/avançado; tecnologia principal que o candidato não conhece; presencial em cidade distante sem ajuda de mudança.
 - Nota de 0 a 100. ALTA >= 65, MÉDIA 40-64, BAIXA < 40. Qualquer eliminatório forte limita a nota a 39.
 - "curriculo": qual versão enviar (Geral, Front-end ou Back-end) conforme o foco da vaga.
 - Se um campo não aparecer no texto, use "Não informado".
+- "lacunas": um item para cada coisa de "falta" e "eliminatorios", com o nome curto e padronizado do requisito (ex.: "Next.js", "Jest", "Inglês avançado", "Graduação em TI", "2+ anos de experiência"), o tipo (tecnologia, idioma, formacao, experiencia ou outro) e se é obrigatório na vaga (true) ou diferencial (false).
 Responda APENAS com um JSON neste formato:
-{"empresa":"","cargo":"","local":"","modalidade":"Remoto|Híbrido|Presencial|Não informado","contrato":"CLT|PJ|Estágio|Não informado","salario":"","nivel_vaga":"Estágio|Júnior|Pleno|Sênior|Não informado","nota":0,"veredito":"ALTA|MÉDIA|BAIXA","bate":["..."],"falta":["..."],"eliminatorios":["..."],"curriculo":"Geral|Front-end|Back-end","resumo":"1-2 frases","dica":"1 frase prática para a candidatura"}`
+{"empresa":"","cargo":"","local":"","modalidade":"Remoto|Híbrido|Presencial|Não informado","contrato":"CLT|PJ|Estágio|Não informado","salario":"","nivel_vaga":"Estágio|Júnior|Pleno|Sênior|Não informado","nota":0,"veredito":"ALTA|MÉDIA|BAIXA","bate":["..."],"falta":["..."],"eliminatorios":["..."],"lacunas":[{"nome":"Next.js","tipo":"tecnologia","obrigatorio":false}],"curriculo":"Geral|Front-end|Back-end","resumo":"1-2 frases","dica":"1 frase prática para a candidatura"}`
 
 export function buildMessages(profile: string, text: string, url: string, title: string): ChatMessage[] {
   return [
@@ -57,6 +70,26 @@ const list = (v: unknown): string[] =>
 
 function vereditoFromNota(nota: number): Veredito {
   return nota >= 65 ? 'ALTA' : nota >= 40 ? 'MÉDIA' : 'BAIXA'
+}
+
+const TIPOS: TipoLacuna[] = ['tecnologia', 'idioma', 'formacao', 'experiencia', 'outro']
+
+function parseLacunas(v: unknown): Lacuna[] {
+  if (!Array.isArray(v)) return []
+  const out: Lacuna[] = []
+  for (const item of v) {
+    if (!item || typeof item !== 'object') continue
+    const it = item as Record<string, unknown>
+    const nome = typeof it.nome === 'string' ? it.nome.trim() : ''
+    if (!nome) continue
+    const t = String(it.tipo ?? '').toLowerCase().replace('formação', 'formacao').replace('experiência', 'experiencia')
+    out.push({
+      nome: nome.slice(0, 60),
+      tipo: (TIPOS as string[]).includes(t) ? (t as TipoLacuna) : 'outro',
+      obrigatorio: it.obrigatorio === true || it.obrigatorio === 'true',
+    })
+  }
+  return out.slice(0, 12)
 }
 
 export function parseAnalysis(raw: string): Analysis {
@@ -92,6 +125,7 @@ export function parseAnalysis(raw: string): Analysis {
     bate: list(data.bate),
     falta: list(data.falta),
     eliminatorios: list(data.eliminatorios),
+    lacunas: parseLacunas(data.lacunas),
     curriculo,
     resumo: str(data.resumo, ''),
     dica: str(data.dica, ''),

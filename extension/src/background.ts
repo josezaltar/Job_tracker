@@ -10,6 +10,8 @@ import {
   SessionExpiredError,
 } from './lib/jobTracker.ts'
 import { loadSettings, saveSettings } from './lib/settings.ts'
+import { studyProfileLines } from './lib/stats.ts'
+import { loadStudy } from './lib/study.ts'
 import type { PageContent } from './lib/page.ts'
 import type { JobFields } from './lib/jobTracker.ts'
 
@@ -20,7 +22,8 @@ async function analyze(page: PageContent) {
     const analysis = await analyzeJob({
       key: settings.groqKey,
       model: settings.model,
-      profile: settings.profile,
+      // O que você marcou como "Estudando" ou "Aprendi" entra no perfil enviado para a IA
+      profile: [settings.profile, studyProfileLines(await loadStudy())].filter(Boolean).join('\n'),
       text: page.text,
       url: page.jobUrl,
       title: page.title,

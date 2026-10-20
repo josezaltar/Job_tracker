@@ -122,9 +122,18 @@ export default function App() {
           <img src="icons/icon48.png" alt="" className="h-6 w-6" />
           <h1 className="text-[15px] font-bold">Analisador de Vagas</h1>
         </div>
-        <button onClick={openOptions} className="text-xs text-slate-400 hover:text-slate-200" title="Configurações">
-          ⚙ Opções
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('stats.html') })}
+            className="text-xs text-slate-400 hover:text-slate-200"
+            title="Ranking do que mais falta nas vagas analisadas"
+          >
+            📊 O que estudar
+          </button>
+          <button onClick={openOptions} className="text-xs text-slate-400 hover:text-slate-200" title="Configurações">
+            ⚙ Opções
+          </button>
+        </div>
       </header>
 
       {setupMissing && (
