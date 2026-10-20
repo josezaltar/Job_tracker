@@ -25,6 +25,7 @@ O **Job Tracker Pro** é uma aplicação fullstack que ajuda profissionais a org
 - 💾 **Persistência de dados** — PostgreSQL com SQL puro (node-postgres)
 - 👀 **Conta demo** — Acesso com dados de exemplo, recriados a cada reinício do servidor
 - 🛡️ **Rotas protegidas** — Acesso apenas para usuários autenticados
+- 🧩 **Extensão para Edge/Chrome** — Analisa a vaga aberta com IA (nota, o que bate, o que falta) e salva no Job Tracker com um clique. Veja [`extension/`](extension/README.md)
 
 ## 🛠️ Tecnologias
 
@@ -132,12 +133,13 @@ Job_tracker/
 | POST | `/api/auth/register` | Criar nova conta |
 | POST | `/api/auth/login` | Fazer login |
 | GET | `/api/auth/me` | Dados do usuário logado |
+| POST | `/api/auth/extension-token` | Token de 90 dias para a extensão do navegador (requer autenticação) |
 
 ### Vagas (requer autenticação)
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/api/jobs` | Listar todas as vagas |
+| GET | `/api/jobs` | Listar todas as vagas (`?url=` filtra pelo link da vaga) |
 | GET | `/api/jobs/:id` | Buscar vaga por ID |
 | POST | `/api/jobs` | Criar nova vaga |
 | PATCH | `/api/jobs/:id` | Atualizar vaga |
