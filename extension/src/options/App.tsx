@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 import { friendlyNetworkError, login } from '../lib/jobTracker.ts'
 import { extractPdfText, generateProfile, MAX_CVS, type CvFile } from '../lib/cv.ts'
-import { DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_PROFILE, isProfileTemplate, loadSettings, saveSettings, type Settings } from '../lib/settings.ts'
+import {
+  DEFAULT_API_URL,
+  DEFAULT_MODEL,
+  DEFAULT_PROFILE,
+  effectiveGroqKey,
+  isProfileTemplate,
+  loadSettings,
+  saveSettings,
+  type Settings,
+} from '../lib/settings.ts'
 
 type Msg = { kind: 'ok' | 'err'; text: string } | null
 
@@ -43,10 +52,12 @@ export default function App() {
     if (!s) return
     setBusy('groq')
     setGroqMsg(null)
-    const key = s.groqKey.trim()
+    const own = s.groqKey.trim()
+    const key = effectiveGroqKey({ groqKey: own, defaultGroqKey: s.defaultGroqKey })
     const model = s.model.trim() || DEFAULT_MODEL
-    await saveSettings({ groqKey: key, model })
+    await saveSettings({ groqKey: own, model })
     try {
+      if (!key) throw new Error('Cole uma chave da Groq.')
       const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } })
       if (res.status === 401) throw new Error('Chave inválida.')
       if (!res.ok) throw new Error(`Erro ${res.status} ao testar.`)
@@ -80,7 +91,7 @@ export default function App() {
         cvs.push({ name: file.name, text: await extractPdfText(await file.arrayBuffer()) })
       }
       setCvStep(files.length > 1 ? `Juntando os ${files.length} currículos com IA…` : 'Montando o perfil com IA…')
-      const profile = await generateProfile({ key: saved.groqKey, model: saved.model, cvs })
+      const profile = await generateProfile({ key: effectiveGroqKey(saved), model: saved.model, cvs })
       setS(await saveSettings({ profile }))
       const names = files.map((f) => `"${f.name}"`).join(', ')
       setProfileMsg({
@@ -140,27 +151,41 @@ export default function App() {
       </header>
 
       <Card title="1. Inteligência artificial (Groq)">
-        <label className="block text-slate-300">
-          Chave da API
-          <input type="password" className="field mt-1" value={s.groqKey} placeholder="gsk_..." onChange={(e) => set({ groqKey: e.target.value })} />
-        </label>
-        <p className="text-[12.5px] text-slate-400">
-          Crie grátis em{' '}
-          <a className="text-sky-300 underline" href="https://console.groq.com/keys" target="_blank" rel="noreferrer">
-            console.groq.com/keys
-          </a>
-          . Use uma chave só para a extensão.
-        </p>
-        <label className="block text-slate-300">
-          Modelo
-          <input className="field mt-1" value={s.model} onChange={(e) => set({ model: e.target.value })} />
-        </label>
-        <div className="flex items-center gap-3">
-          <button onClick={saveGroq} disabled={busy === 'groq'} className="btn btn-primary">
-            {busy === 'groq' ? 'Testando…' : 'Salvar e testar'}
-          </button>
-          <Note msg={groqMsg} />
-        </div>
+        {s.defaultGroqKey && (
+          <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-[13px] text-emerald-200">
+            ✓ A IA já vem configurada nesta versão de teste. Não precisa fazer nada aqui: siga para o passo 2.
+          </p>
+        )}
+        <details className="space-y-3" open={!s.defaultGroqKey}>
+          {s.defaultGroqKey && <summary className="cursor-pointer text-[12.5px] text-slate-400">Usar minha própria chave (opcional)</summary>}
+          <label className="mt-2 block text-slate-300">
+            Chave da API
+            <input
+              type="password"
+              className="field mt-1"
+              value={s.groqKey}
+              placeholder={s.defaultGroqKey ? 'Em branco = usa a chave do teste' : 'gsk_...'}
+              onChange={(e) => set({ groqKey: e.target.value })}
+            />
+          </label>
+          <p className="text-[12.5px] text-slate-400">
+            Crie grátis em{' '}
+            <a className="text-sky-300 underline" href="https://console.groq.com/keys" target="_blank" rel="noreferrer">
+              console.groq.com/keys
+            </a>
+            . Use uma chave só para a extensão.
+          </p>
+          <label className="block text-slate-300">
+            Modelo
+            <input className="field mt-1" value={s.model} onChange={(e) => set({ model: e.target.value })} />
+          </label>
+          <div className="flex items-center gap-3">
+            <button onClick={saveGroq} disabled={busy === 'groq'} className="btn btn-primary">
+              {busy === 'groq' ? 'Testando…' : 'Salvar e testar'}
+            </button>
+            <Note msg={groqMsg} />
+          </div>
+        </details>
       </Card>
 
       <Card title="2. Seu perfil">

@@ -41,6 +41,12 @@ npm test        # 34 testes: leitura da vaga, links, análise, login, envio, est
 
 Depois de mudar o código, rode `npm run build` de novo e clique em **Recarregar** no card da extensão.
 
+## Versão para grupo de teste (chave padrão)
+
+Para distribuir sem que cada pessoa precise criar uma chave da Groq, crie `extension/public/config.json` (veja `config.example.json`) com `{"groqKey": "gsk_..."}` antes do `npm run build`. A chave entra só na pasta `dist`, nunca no Git (`config.json` está no `.gitignore`). Quem colocar a própria chave nas opções usa a dela; a chave padrão não é gravada no navegador.
+
+A chave fica legível para quem abrir os arquivos da extensão: use uma chave só para o teste e apague-a no console da Groq se houver abuso.
+
 ## Configuração
 
 Abra as **Opções** pelo link no popup e preencha:

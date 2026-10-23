@@ -9,7 +9,7 @@ import {
   friendlyNetworkError,
   SessionExpiredError,
 } from './lib/jobTracker.ts'
-import { loadSettings, saveSettings } from './lib/settings.ts'
+import { effectiveGroqKey, loadSettings, saveSettings } from './lib/settings.ts'
 import { studyProfileLines } from './lib/stats.ts'
 import { loadStudy } from './lib/study.ts'
 import type { PageContent } from './lib/page.ts'
@@ -20,7 +20,7 @@ async function analyze(page: PageContent) {
   await patchJobState(page.jobUrl, { task: 'analyzing', taskStartedAt: Date.now(), error: undefined })
   try {
     const analysis = await analyzeJob({
-      key: settings.groqKey,
+      key: effectiveGroqKey(settings),
       model: settings.model,
       // O que você marcou como "Estudando" ou "Aprendi" entra no perfil enviado para a IA
       profile: [settings.profile, studyProfileLines(await loadStudy())].filter(Boolean).join('\n'),
