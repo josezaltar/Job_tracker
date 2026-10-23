@@ -138,7 +138,7 @@ export default function App() {
 
       {setupMissing && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px] text-amber-200">
-          {!settings.groqKey ? 'Falta a chave da Groq' : 'Falta preencher o seu perfil'}.{' '}
+          {!settings.groqKey ? 'Falta a chave da Groq' : 'Falta enviar o seu currículo'}.{' '}
           <button onClick={openOptions} className="font-semibold underline">
             Configurar agora
           </button>

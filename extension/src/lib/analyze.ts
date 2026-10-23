@@ -44,7 +44,8 @@ Regras:
 - Experiência em gestão NÃO conta como experiência em desenvolvimento.
 - Projetos pessoais publicados contam como experiência prática quando a vaga é júnior ou aceita projetos.
 - Diferenciais que faltam tiram no máximo 10 pontos no total.
-- São eliminatórios: exigir pleno/sênior ou 3+ anos de dev; graduação obrigatória em TI/Computação; inglês fluente/avançado; tecnologia principal que o candidato não conhece; presencial em cidade distante sem ajuda de mudança.
+- São eliminatórios: exigir pleno/sênior ou 3+ anos de dev; inglês fluente/avançado; tecnologia principal que o candidato não conhece; presencial em cidade distante sem ajuda de mudança.
+- Formação: QUALQUER graduação (concluída ou em andamento) que o candidato tiver atende requisitos de "ensino superior", "graduação em TI, Computação ou áreas afins/correlatas" e semelhantes. Nunca trate a área da graduação como eliminatório nem como lacuna.
 - Nota de 0 a 100. ALTA >= 65, MÉDIA 40-64, BAIXA < 40. Qualquer eliminatório forte limita a nota a 39.
 - "curriculo": qual versão enviar (Geral, Front-end ou Back-end) conforme o foco da vaga.
 - Se um campo não aparecer no texto, use "Não informado".
@@ -132,7 +133,7 @@ export function parseAnalysis(raw: string): Analysis {
   }
 }
 
-async function callGroq(key: string, model: string, messages: ChatMessage[], jsonMode: boolean) {
+export async function callGroq(key: string, model: string, messages: ChatMessage[], jsonMode: boolean) {
   return fetch(GROQ_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
