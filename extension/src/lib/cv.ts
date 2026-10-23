@@ -1,14 +1,22 @@
-// Gera o perfil a partir do currículo: lê o texto do PDF e pede para a IA resumir no formato do perfil.
+// Gera o perfil a partir de um ou mais currículos: lê o texto dos PDFs e pede para a IA juntar tudo no formato do perfil.
 import { callGroq, type ChatMessage } from './analyze.ts'
 
-export const CV_MAX_CHARS = 20000
-export const RESUME_VERSIONS_LINE = 'Currículos disponíveis: Geral, Front-end, Back-end'
+export const CV_MAX_CHARS = 12000 // por currículo
+export const MAX_CVS = 5
+
+/** Um currículo enviado: nome do arquivo e o texto lido do PDF. */
+export interface CvFile {
+  name: string
+  text: string
+}
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
-const PROFILE_SYSTEM = `Você transforma um currículo em um perfil objetivo, usado para comparar a pessoa com vagas de tecnologia.
+const PROFILE_SYSTEM = `Você transforma um ou mais currículos da MESMA pessoa em um único perfil objetivo, usado para comparar a pessoa com vagas de tecnologia.
 Regras:
-- Use SOMENTE o que está no currículo. Não invente tecnologias, níveis, datas nem experiências.
+- Use SOMENTE o que está nos currículos. Não invente tecnologias, níveis, datas nem experiências.
+- Com vários currículos, junte tudo sem repetir: some as tecnologias, projetos e experiências de todos. Se houver conflito de datas, use a informação mais detalhada.
+- "Currículos disponíveis": dê a cada currículo enviado um nome curto pelo foco dele (ex.: Geral, Front-end, Back-end, Dados), na ordem em que foram enviados. Com um só currículo, escreva "Geral".
 - Separe a experiência em desenvolvimento/tecnologia da experiência em outras áreas. Calcule o tempo de cada uma com base na data de hoje.
 - "Stack com projetos ou trabalho": só tecnologias usadas em projetos ou empregos descritos no currículo.
 - "Noções": tecnologias citadas apenas em cursos ou listas de competências, sem projeto ou emprego.
@@ -24,13 +32,18 @@ Stack com projetos ou trabalho: ...
 Noções: ...
 Projetos: ...
 Localização e modelo: ...
-Diferenciais: ...`
+Diferenciais: ...
+Currículos disponíveis: ...`
 
-export function buildProfileMessages(cvText: string, today = new Date()): ChatMessage[] {
+export function buildProfileMessages(cvs: CvFile[], today = new Date()): ChatMessage[] {
   const hoje = `${MESES[today.getMonth()]}/${today.getFullYear()}`
+  const blocks = cvs
+    .slice(0, MAX_CVS)
+    .map((cv, i) => `CURRÍCULO ${i + 1} (arquivo: ${cv.name}):\n${cv.text.slice(0, CV_MAX_CHARS)}`)
+    .join('\n\n----------\n\n')
   return [
     { role: 'system', content: PROFILE_SYSTEM },
-    { role: 'user', content: `Data de hoje: ${hoje}.\n\nCURRÍCULO:\n${cvText.slice(0, CV_MAX_CHARS)}` },
+    { role: 'user', content: `Data de hoje: ${hoje}. Total de currículos: ${Math.min(cvs.length, MAX_CVS)}.\n\n${blocks}` },
   ]
 }
 
@@ -45,8 +58,10 @@ export function parseProfile(raw: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
   if (!/^nível\s*:/im.test(text)) throw new Error('A IA não conseguiu montar o perfil. Tente de novo.')
-  const withoutVersions = text.replace(/^currículos disponíveis\s*:.*$/gim, '').trim()
-  return `${withoutVersions}\n${RESUME_VERSIONS_LINE}`
+  // A linha das versões fica sempre por último, uma vez só
+  const versions = text.match(/^currículos disponíveis\s*:\s*(.+)$/im)?.[1]?.trim() || 'Geral'
+  const body = text.replace(/^currículos disponíveis\s*:.*$/gim, '').replace(/\n{3,}/g, '\n\n').trim()
+  return `${body}\nCurrículos disponíveis: ${versions}`
 }
 
 /** Lê o texto de um PDF no navegador. O pdf.js só é carregado quando a pessoa envia o arquivo. */
@@ -75,12 +90,15 @@ export async function extractPdfText(data: ArrayBuffer): Promise<string> {
   return pages.join('\n\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 }
 
-export async function generateProfile(opts: { key: string; model: string; cvText: string }): Promise<string> {
+export async function generateProfile(opts: { key: string; model: string; cvs: CvFile[] }): Promise<string> {
   if (!opts.key) throw new Error('Salve sua chave da Groq (passo 1) antes de enviar o currículo.')
-  if (opts.cvText.trim().length < 200) {
-    throw new Error('Não consegui ler o texto desse PDF. Se ele for uma imagem escaneada, exporte de novo como PDF de texto (ex.: "Salvar como PDF" no Word ou Google Docs).')
+  const unreadable = opts.cvs.filter((cv) => cv.text.trim().length < 200).map((cv) => cv.name)
+  if (!opts.cvs.length || unreadable.length) {
+    throw new Error(
+      `Não consegui ler o texto de: ${unreadable.join(', ') || 'nenhum arquivo'}. Se for uma imagem escaneada, exporte de novo como PDF de texto (ex.: "Salvar como PDF" no Word ou Google Docs).`,
+    )
   }
-  const res = await callGroq(opts.key, opts.model, buildProfileMessages(opts.cvText), false)
+  const res = await callGroq(opts.key, opts.model, buildProfileMessages(opts.cvs), false)
   if (res.status === 401) throw new Error('Chave da Groq inválida. Gere uma nova em console.groq.com e salve no passo 1.')
   if (res.status === 429) throw new Error('Limite da Groq atingido. Espere um minuto e tente de novo.')
   if (!res.ok) throw new Error(`Erro da Groq (${res.status}). Tente de novo.`)

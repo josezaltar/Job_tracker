@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { friendlyNetworkError, login } from '../lib/jobTracker.ts'
-import { extractPdfText, generateProfile } from '../lib/cv.ts'
+import { extractPdfText, generateProfile, MAX_CVS, type CvFile } from '../lib/cv.ts'
 import { DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_PROFILE, isProfileTemplate, loadSettings, saveSettings, type Settings } from '../lib/settings.ts'
 
 type Msg = { kind: 'ok' | 'err'; text: string } | null
@@ -64,18 +64,29 @@ export default function App() {
     }
   }
 
-  async function importCv(file: File) {
+  async function importCvs(files: File[]) {
     if (!s) return
+    if (files.length > MAX_CVS) {
+      setProfileMsg({ kind: 'err', text: `Envie no máximo ${MAX_CVS} currículos de uma vez.` })
+      return
+    }
     setBusy('cv')
     setProfileMsg(null)
     try {
       const saved = await loadSettings() // usa a chave já salva no passo 1
-      setCvStep('Lendo o currículo…')
-      const cvText = await extractPdfText(await file.arrayBuffer())
-      setCvStep('Montando o perfil com IA…')
-      const profile = await generateProfile({ key: saved.groqKey, model: saved.model, cvText })
+      const cvs: CvFile[] = []
+      for (const [i, file] of files.entries()) {
+        setCvStep(files.length > 1 ? `Lendo currículo ${i + 1} de ${files.length}…` : 'Lendo o currículo…')
+        cvs.push({ name: file.name, text: await extractPdfText(await file.arrayBuffer()) })
+      }
+      setCvStep(files.length > 1 ? `Juntando os ${files.length} currículos com IA…` : 'Montando o perfil com IA…')
+      const profile = await generateProfile({ key: saved.groqKey, model: saved.model, cvs })
       setS(await saveSettings({ profile }))
-      setProfileMsg({ kind: 'ok', text: `✓ Perfil montado a partir de "${file.name}" e salvo. Confira abaixo.` })
+      const names = files.map((f) => `"${f.name}"`).join(', ')
+      setProfileMsg({
+        kind: 'ok',
+        text: files.length > 1 ? `✓ Perfil montado juntando ${files.length} currículos (${names}) e salvo. Confira abaixo.` : `✓ Perfil montado a partir de ${names} e salvo. Confira abaixo.`,
+      })
     } catch (e) {
       const msg = (e as Error).message
       setProfileMsg({ kind: 'err', text: /invalid pdf|password/i.test(msg) ? 'Não consegui abrir esse PDF. Confira se o arquivo não está protegido por senha.' : friendlyNetworkError(e) })
@@ -154,7 +165,7 @@ export default function App() {
 
       <Card title="2. Seu perfil">
         <p className="text-[12.5px] text-slate-400">
-          Envie seu currículo em PDF. A IA lê e monta o perfil que será comparado com cada vaga. Depois é só conferir.
+          Envie seus currículos em PDF. A IA lê e monta o perfil que será comparado com cada vaga, e indica qual versão enviar em cada uma.
         </p>
         <label
           className={`flex cursor-pointer flex-col items-center gap-1 rounded-lg border-2 border-dashed p-5 text-center ${
@@ -162,18 +173,21 @@ export default function App() {
           }`}
         >
           <span className="text-[14px] font-semibold text-slate-100">
-            {busy === 'cv' ? cvStep : isProfileTemplate(s.profile) ? '📄 Enviar currículo (PDF)' : '📄 Enviar outro currículo (PDF)'}
+            {busy === 'cv' ? cvStep : isProfileTemplate(s.profile) ? '📄 Enviar currículos (PDF)' : '📄 Enviar currículos de novo (PDF)'}
           </span>
-          <span className="text-[12px] text-slate-400">Clique para escolher o arquivo. O PDF não fica salvo; só o perfil gerado.</span>
+          <span className="text-[12px] text-slate-400">
+            Pode escolher mais de um (ex.: Geral, Front-end e Back-end): a IA junta tudo num perfil só. Os PDFs não ficam salvos.
+          </span>
           <input
             type="file"
             accept="application/pdf,.pdf"
+            multiple
             className="hidden"
             disabled={busy === 'cv'}
             onChange={(e) => {
-              const file = e.target.files?.[0]
+              const files = [...(e.target.files ?? [])]
               e.target.value = ''
-              if (file) importCv(file)
+              if (files.length) importCvs(files)
             }}
           />
         </label>
