@@ -33,7 +33,7 @@ Requer Node.js 22 ou mais novo.
 cd extension
 npm install
 npm run build   # gera a pasta dist/
-npm test        # 32 testes: leitura da vaga, links, análise, login, envio, estatísticas e perfil
+npm test        # 34 testes: leitura da vaga, links, análise, login, envio, estatísticas e perfil
 ```
 
 **No Edge:** abra `edge://extensions`, ligue o **Modo de desenvolvedor** e clique em **Carregar descompactada** (em inglês, *Load unpacked*). Escolha a pasta `extension/dist`.
@@ -46,7 +46,7 @@ Depois de mudar o código, rode `npm run build` de novo e clique em **Recarregar
 Abra as **Opções** pelo link no popup e preencha:
 
 1. **Chave da Groq.** Crie uma de graça em [console.groq.com/keys](https://console.groq.com/keys). O modelo padrão é `openai/gpt-oss-120b`; o botão "Salvar e testar" confere a chave e o modelo.
-2. **Perfil.** Envie o currículo em PDF: a extensão lê o texto no próprio navegador (pdf.js), a IA monta o perfil e ele já fica salvo. Dá para ajustar o texto depois. O PDF não é guardado.
+2. **Perfil.** Envie um ou mais currículos em PDF (ex.: Geral, Front-end e Back-end). A extensão lê o texto no próprio navegador (pdf.js), a IA junta tudo num perfil só e lista as versões; em cada vaga, ela indica qual versão enviar. O perfil já fica salvo e pode ser ajustado. Os PDFs não são guardados.
 3. **Conta do Job Tracker.** Entre com o seu e-mail e senha. A API em produção pode levar até 1 minuto para acordar (plano gratuito do Render).
 
 Atalho para abrir a extensão: `Alt+Shift+J` (dá para trocar em `edge://extensions/shortcuts`).

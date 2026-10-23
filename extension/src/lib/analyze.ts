@@ -1,7 +1,8 @@
 // Análise da vaga com a Groq (API compatível com OpenAI).
 
 export type Veredito = 'ALTA' | 'MÉDIA' | 'BAIXA'
-export type Curriculo = 'Geral' | 'Front-end' | 'Back-end'
+/** Versão do currículo indicada para a vaga (uma das listadas no perfil, ex.: "Front-end"). */
+export type Curriculo = string
 
 export type TipoLacuna = 'tecnologia' | 'idioma' | 'formacao' | 'experiencia' | 'outro'
 
@@ -47,11 +48,11 @@ Regras:
 - São eliminatórios: exigir pleno/sênior ou 3+ anos de dev; inglês fluente/avançado; tecnologia principal que o candidato não conhece; presencial em cidade distante sem ajuda de mudança.
 - Formação: QUALQUER graduação (concluída ou em andamento) que o candidato tiver atende requisitos de "ensino superior", "graduação em TI, Computação ou áreas afins/correlatas" e semelhantes. Nunca trate a área da graduação como eliminatório nem como lacuna.
 - Nota de 0 a 100. ALTA >= 65, MÉDIA 40-64, BAIXA < 40. Qualquer eliminatório forte limita a nota a 39.
-- "curriculo": qual versão enviar (Geral, Front-end ou Back-end) conforme o foco da vaga.
+- "curriculo": qual das versões listadas em "Currículos disponíveis" no perfil enviar, conforme o foco da vaga. Use exatamente o nome da versão. Se só houver uma, use ela.
 - Se um campo não aparecer no texto, use "Não informado".
 - "lacunas": um item para cada coisa de "falta" e "eliminatorios", com o nome curto e padronizado do requisito (ex.: "Next.js", "Jest", "Inglês avançado", "Graduação em TI", "2+ anos de experiência"), o tipo (tecnologia, idioma, formacao, experiencia ou outro) e se é obrigatório na vaga (true) ou diferencial (false).
 Responda APENAS com um JSON neste formato:
-{"empresa":"","cargo":"","local":"","modalidade":"Remoto|Híbrido|Presencial|Não informado","contrato":"CLT|PJ|Estágio|Não informado","salario":"","nivel_vaga":"Estágio|Júnior|Pleno|Sênior|Não informado","nota":0,"veredito":"ALTA|MÉDIA|BAIXA","bate":["..."],"falta":["..."],"eliminatorios":["..."],"lacunas":[{"nome":"Next.js","tipo":"tecnologia","obrigatorio":false}],"curriculo":"Geral|Front-end|Back-end","resumo":"1-2 frases","dica":"1 frase prática para a candidatura"}`
+{"empresa":"","cargo":"","local":"","modalidade":"Remoto|Híbrido|Presencial|Não informado","contrato":"CLT|PJ|Estágio|Não informado","salario":"","nivel_vaga":"Estágio|Júnior|Pleno|Sênior|Não informado","nota":0,"veredito":"ALTA|MÉDIA|BAIXA","bate":["..."],"falta":["..."],"eliminatorios":["..."],"lacunas":[{"nome":"Next.js","tipo":"tecnologia","obrigatorio":false}],"curriculo":"nome da versão","resumo":"1-2 frases","dica":"1 frase prática para a candidatura"}`
 
 export function buildMessages(profile: string, text: string, url: string, title: string): ChatMessage[] {
   return [
@@ -93,6 +94,16 @@ function parseLacunas(v: unknown): Lacuna[] {
   return out.slice(0, 12)
 }
 
+/** Padroniza os nomes mais comuns; qualquer outro nome de versão é mantido como veio. */
+export function normalizeCurriculo(v: unknown): Curriculo {
+  const raw = typeof v === 'string' ? v.trim().slice(0, 40) : ''
+  const c = raw.toLowerCase()
+  if (!c || c.startsWith('geral') || c.startsWith('full')) return 'Geral'
+  if (c.startsWith('front')) return 'Front-end'
+  if (c.startsWith('back')) return 'Back-end'
+  return raw
+}
+
 export function parseAnalysis(raw: string): Analysis {
   const cleaned = raw.replace(/```(?:json)?/gi, '')
   const start = cleaned.indexOf('{')
@@ -110,8 +121,7 @@ export function parseAnalysis(raw: string): Analysis {
   const nota = Number.isFinite(notaNum) ? Math.min(100, Math.max(0, notaNum)) : 0
   const v = String(data.veredito ?? '').toUpperCase().replace('MEDIA', 'MÉDIA')
   const veredito: Veredito = v === 'ALTA' || v === 'MÉDIA' || v === 'BAIXA' ? v : vereditoFromNota(nota)
-  const c = String(data.curriculo ?? '').toLowerCase()
-  const curriculo: Curriculo = c.startsWith('front') ? 'Front-end' : c.startsWith('back') ? 'Back-end' : 'Geral'
+  const curriculo = normalizeCurriculo(data.curriculo)
 
   return {
     empresa: str(data.empresa),
