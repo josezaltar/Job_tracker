@@ -85,11 +85,15 @@ export function canonicalName(nome: string): string {
 }
 
 /** Análises antigas não têm "lacunas": monta a partir dos textos de "falta" e "eliminatórios". */
+// Qualquer graduação atende "graduação e afins": requisitos de formação superior não são lacuna
+const GRADUACAO = /gradua|ensino superior|bacharel|superior completo|forma[cç][aã]o (superior|em ti|em computa)/i
+const isGraduacao = (l: Lacuna) => GRADUACAO.test(l.nome)
+
 export function lacunasOf(a: Analysis): Lacuna[] {
-  if (a.lacunas?.length) return a.lacunas
+  if (a.lacunas?.length) return a.lacunas.filter((l) => !isGraduacao(l))
   const fromText = (items: string[], obrigatorio: boolean) =>
     items.map((t) => ({ nome: t.replace(/\(.*?\)/g, '').trim(), tipo: 'outro' as TipoLacuna, obrigatorio })).filter((l) => l.nome)
-  return [...fromText(a.eliminatorios ?? [], true), ...fromText(a.falta ?? [], false)]
+  return [...fromText(a.eliminatorios ?? [], true), ...fromText(a.falta ?? [], false)].filter((l) => !isGraduacao(l))
 }
 
 export function aggregate(entries: { jobUrl: string; state: JobState }[]): Stats {

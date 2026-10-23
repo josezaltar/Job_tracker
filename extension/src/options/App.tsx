@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { friendlyNetworkError, login } from '../lib/jobTracker.ts'
-import { DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_PROFILE, loadSettings, saveSettings, type Settings } from '../lib/settings.ts'
+import { extractPdfText, generateProfile } from '../lib/cv.ts'
+import { DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_PROFILE, isProfileTemplate, loadSettings, saveSettings, type Settings } from '../lib/settings.ts'
 
 type Msg = { kind: 'ok' | 'err'; text: string } | null
 
@@ -25,6 +26,7 @@ export default function App() {
   const [busy, setBusy] = useState('')
   const [groqMsg, setGroqMsg] = useState<Msg>(null)
   const [profileMsg, setProfileMsg] = useState<Msg>(null)
+  const [cvStep, setCvStep] = useState('')
   const [jtMsg, setJtMsg] = useState<Msg>(null)
 
   useEffect(() => {
@@ -62,10 +64,31 @@ export default function App() {
     }
   }
 
+  async function importCv(file: File) {
+    if (!s) return
+    setBusy('cv')
+    setProfileMsg(null)
+    try {
+      const saved = await loadSettings() // usa a chave já salva no passo 1
+      setCvStep('Lendo o currículo…')
+      const cvText = await extractPdfText(await file.arrayBuffer())
+      setCvStep('Montando o perfil com IA…')
+      const profile = await generateProfile({ key: saved.groqKey, model: saved.model, cvText })
+      setS(await saveSettings({ profile }))
+      setProfileMsg({ kind: 'ok', text: `✓ Perfil montado a partir de "${file.name}" e salvo. Confira abaixo.` })
+    } catch (e) {
+      const msg = (e as Error).message
+      setProfileMsg({ kind: 'err', text: /invalid pdf|password/i.test(msg) ? 'Não consegui abrir esse PDF. Confira se o arquivo não está protegido por senha.' : friendlyNetworkError(e) })
+    } finally {
+      setBusy('')
+      setCvStep('')
+    }
+  }
+
   async function saveProfile(profile: string) {
     if (!s) return
     setS(await saveSettings({ profile }))
-    setProfileMsg({ kind: 'ok', text: '✓ Perfil salvo.' })
+    setProfileMsg({ kind: 'ok', text: isProfileTemplate(profile) ? 'Perfil apagado. Envie um currículo para montar outro.' : '✓ Perfil salvo.' })
   }
 
   async function connect() {
@@ -131,18 +154,44 @@ export default function App() {
 
       <Card title="2. Seu perfil">
         <p className="text-[12.5px] text-slate-400">
-          É com isso que a IA compara cada vaga. Troque os exemplos entre parênteses pelos seus dados e atualize quando aprender algo novo.
+          Envie seu currículo em PDF. A IA lê e monta o perfil que será comparado com cada vaga. Depois é só conferir.
         </p>
-        <textarea className="field h-64 font-mono text-[12px] leading-relaxed" value={s.profile} onChange={(e) => set({ profile: e.target.value })} />
-        <div className="flex items-center gap-3">
-          <button onClick={() => saveProfile(s.profile)} className="btn btn-primary">
-            Salvar perfil
-          </button>
-          <button onClick={() => saveProfile(DEFAULT_PROFILE)} className="btn btn-ghost">
-            Voltar ao modelo
-          </button>
-          <Note msg={profileMsg} />
-        </div>
+        <label
+          className={`flex cursor-pointer flex-col items-center gap-1 rounded-lg border-2 border-dashed p-5 text-center ${
+            busy === 'cv' ? 'cursor-wait border-sky-500/60 bg-sky-500/5' : 'border-slate-600 hover:border-sky-500 hover:bg-slate-800'
+          }`}
+        >
+          <span className="text-[14px] font-semibold text-slate-100">
+            {busy === 'cv' ? cvStep : isProfileTemplate(s.profile) ? '📄 Enviar currículo (PDF)' : '📄 Enviar outro currículo (PDF)'}
+          </span>
+          <span className="text-[12px] text-slate-400">Clique para escolher o arquivo. O PDF não fica salvo; só o perfil gerado.</span>
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            disabled={busy === 'cv'}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) importCv(file)
+            }}
+          />
+        </label>
+        <Note msg={profileMsg} />
+        {!isProfileTemplate(s.profile) && (
+          <>
+            <p className="text-[12.5px] text-slate-400">Perfil usado nas análises. Ajuste se a IA errou algo e clique em Salvar.</p>
+            <textarea className="field h-64 font-mono text-[12px] leading-relaxed" value={s.profile} onChange={(e) => set({ profile: e.target.value })} />
+            <div className="flex items-center gap-3">
+              <button onClick={() => saveProfile(s.profile)} className="btn btn-primary">
+                Salvar perfil
+              </button>
+              <button onClick={() => saveProfile(DEFAULT_PROFILE)} className="btn btn-ghost">
+                Apagar perfil
+              </button>
+            </div>
+          </>
+        )}
       </Card>
 
       <Card title="3. Conta do Job Tracker">
