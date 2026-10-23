@@ -3,7 +3,7 @@ import type { Analysis } from '../lib/analyze.ts'
 import { getJobState, runningTask, stateKey, type JobState, type Message } from '../lib/jobState.ts'
 import type { JobFields, JobStatus } from '../lib/jobTracker.ts'
 import { getPageContent, type PageContent } from '../lib/page.ts'
-import { isProfileTemplate, loadSettings, type Settings } from '../lib/settings.ts'
+import { effectiveGroqKey, isProfileTemplate, loadSettings, type Settings } from '../lib/settings.ts'
 
 const COLORS: Record<Analysis['veredito'], string> = {
   ALTA: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
@@ -112,7 +112,8 @@ export default function App() {
   const task = runningTask(state)
   const analysis = state.analysis
   const profileMissing = isProfileTemplate(settings.profile)
-  const setupMissing = !settings.groqKey || profileMissing
+  const hasKey = Boolean(effectiveGroqKey(settings))
+  const setupMissing = !hasKey || profileMissing
   const error = pageError || state.error
 
   return (
@@ -138,7 +139,7 @@ export default function App() {
 
       {setupMissing && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px] text-amber-200">
-          {!settings.groqKey ? 'Falta a chave da Groq' : 'Falta enviar o seu currículo'}.{' '}
+          {!hasKey ? 'Falta a chave da Groq' : 'Falta enviar o seu currículo'}.{' '}
           <button onClick={openOptions} className="font-semibold underline">
             Configurar agora
           </button>

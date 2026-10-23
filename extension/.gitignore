@@ -2,3 +2,7 @@ node_modules
 dist
 *.zip
 *.tsbuildinfo
+
+# Chave padrão para grupos de teste: nunca enviar para o GitHub
+public/config.json
+config.json

@@ -19,7 +19,8 @@ export const DEFAULT_API_URL = 'https://job-tracker-api-q7tc.onrender.com/api'
 export const DEFAULT_APP_URL = 'https://job-tracker-seven-ecru-36.vercel.app'
 
 export interface Settings {
-  groqKey: string
+  groqKey: string // chave própria (opcional quando há chave padrão)
+  defaultGroqKey: string // vem do config.json; não é salva
   model: string
   profile: string
   apiUrl: string
@@ -31,6 +32,7 @@ export interface Settings {
 
 const DEFAULTS: Settings = {
   groqKey: '',
+  defaultGroqKey: '',
   model: DEFAULT_MODEL,
   profile: DEFAULT_PROFILE,
   apiUrl: DEFAULT_API_URL,
@@ -40,13 +42,33 @@ const DEFAULTS: Settings = {
   userEmail: '',
 }
 
+/**
+ * Chave padrão para grupos de teste: lida de "config.json" na pasta da extensão.
+ * Esse arquivo NÃO vai para o GitHub (está no .gitignore); quem distribui a extensão
+ * cria o arquivo com {"groqKey": "gsk_..."} antes de compactar a pasta dist.
+ */
+let defaultKeyCache: Promise<string> | null = null
+
+export function loadDefaultGroqKey(): Promise<string> {
+  defaultKeyCache ??= fetch(chrome.runtime.getURL('config.json'))
+    .then((res) => (res.ok ? res.json() : {}))
+    // Só aceita algo com cara de chave da Groq (evita usar o texto de exemplo por engano)
+    .then((cfg: { groqKey?: unknown }) => (typeof cfg.groqKey === 'string' && /^gsk_\w{20,}$/.test(cfg.groqKey.trim()) ? cfg.groqKey.trim() : ''))
+    .catch(() => '')
+  return defaultKeyCache
+}
+
+/** A chave própria da pessoa tem prioridade; sem ela, usa a chave padrão do teste. */
+export const effectiveGroqKey = (s: Pick<Settings, 'groqKey' | 'defaultGroqKey'>) => s.groqKey.trim() || s.defaultGroqKey
+
 export async function loadSettings(): Promise<Settings> {
   const stored = (await chrome.storage.local.get('settings')) as { settings?: Partial<Settings> }
-  return { ...DEFAULTS, ...(stored.settings ?? {}) }
+  return { ...DEFAULTS, ...(stored.settings ?? {}), defaultGroqKey: await loadDefaultGroqKey() }
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
   const next = { ...(await loadSettings()), ...patch }
-  await chrome.storage.local.set({ settings: next })
+  const { defaultGroqKey: _padrao, ...toStore } = next // a chave padrão nunca é gravada no storage
+  await chrome.storage.local.set({ settings: toStore })
   return next
 }
